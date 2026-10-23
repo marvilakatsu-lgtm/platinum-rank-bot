@@ -79,6 +79,12 @@ class RevisaoView(discord.ui.View):
                 if novo > antigo:
                     anuncio.add_field(name="⬆️ Subiu de nível!", value=f"Agora é nível **{novo}** — {patente_por_nivel(novo)}")
                 await canal.send(embed=anuncio)
+            painel = self.bot.get_cog("Colizeu")
+            if painel:
+                try:
+                    await painel.atualizar()
+                except Exception:
+                    pass
         elif membro:
             try:
                 await membro.send(f"Sua platina de **{p['game']}** foi rejeitada. Fale com a moderação se tiver dúvidas.")
@@ -151,7 +157,7 @@ class Platinas(commands.GroupCog, name="platina"):
         await interaction.response.defer(ephemeral=True)
         msg = await canal.send(embed=embed, file=arquivo, view=RevisaoView(self.bot))
         url = msg.embeds[0].image.url if msg.embeds and msg.embeds[0].image else captura.url
-        platina_id = await db.criar_platina(interaction.user.id, jogo, plataforma, d.isoformat(), url)
+        platina_id = await db.criar_platina(interaction.user.id, jogo, plataforma, d.isoformat(), url, msg.id)
         embed.set_footer(text=f"ID:{platina_id}")
         await msg.edit(embed=embed)
         await db.log(interaction.user.id, "platina_registrada", f"id={platina_id} jogo={jogo}")
