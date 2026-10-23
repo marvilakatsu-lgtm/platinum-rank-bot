@@ -15,11 +15,16 @@ CREATE TABLE IF NOT EXISTS platinas (
     platform    TEXT NOT NULL,
     earned_at   TEXT NOT NULL,
     proof_url   TEXT NOT NULL,
+    proof_msg_id INTEGER,
     status      TEXT NOT NULL DEFAULT 'pending',   -- pending | approved | rejected
     reviewer_id INTEGER,
     created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_plat_user ON platinas(user_id, status);
+CREATE TABLE IF NOT EXISTS kv (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+);
 CREATE TABLE IF NOT EXISTS logs (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     actor_id   INTEGER NOT NULL,
@@ -40,6 +45,10 @@ class Database:
         self.conn = await aiosqlite.connect(self.path)
         self.conn.row_factory = aiosqlite.Row
         await self.conn.executescript(SCHEMA)
+        # migração para bancos criados antes da coluna proof_msg_id
+        cols = [r["name"] for r in await self._all("PRAGMA table_info(platinas)")]
+        if "proof_msg_id" not in cols:
+            await self.conn.execute("ALTER TABLE platinas ADD COLUMN proof_msg_id INTEGER")
         await self.conn.commit()
 
     async def _one(self, sql, args=()):
@@ -88,10 +97,10 @@ class Database:
         )
         return row is not None
 
-    async def criar_platina(self, user_id, game, platform, earned_at, proof_url) -> int:
+    async def criar_platina(self, user_id, game, platform, earned_at, proof_url, proof_msg_id=None) -> int:
         cur = await self.conn.execute(
-            "INSERT INTO platinas(user_id, game, platform, earned_at, proof_url) VALUES (?,?,?,?,?)",
-            (user_id, game, platform, earned_at, proof_url),
+            "INSERT INTO platinas(user_id, game, platform, earned_at, proof_url, proof_msg_id) VALUES (?,?,?,?,?,?)",
+            (user_id, game, platform, earned_at, proof_url, proof_msg_id),
         )
         await self.conn.commit()
         return cur.lastrowid
@@ -149,3 +158,31 @@ class Database:
                GROUP BY user_id ORDER BY valor DESC LIMIT ?""",
             (mes, limite),
         )
+
+    # ---------- painel do canal #colizeu ----------
+    async def ranking_completo(self, limite=10):
+        return await self._all(
+            """SELECT p.user_id, COUNT(*) AS platinas, COALESCE(u.xp, 0) AS xp
+               FROM platinas p LEFT JOIN users u ON u.user_id = p.user_id
+               WHERE p.status='approved'
+               GROUP BY p.user_id ORDER BY platinas DESC, xp DESC LIMIT ?""",
+            (limite,),
+        )
+
+    async def ultimas_platinas(self, user_id: int, n: int = 3):
+        return await self._all(
+            """SELECT * FROM platinas WHERE user_id=? AND status='approved'
+               ORDER BY earned_at DESC, id DESC LIMIT ?""",
+            (user_id, n),
+        )
+
+    async def get_kv(self, key: str):
+        row = await self._one("SELECT value FROM kv WHERE key=?", (key,))
+        return row["value"] if row else None
+
+    async def set_kv(self, key: str, value: str):
+        await self.conn.execute(
+            "INSERT INTO kv(key, value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+            (key, value),
+        )
+        await self.conn.commit()

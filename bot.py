@@ -7,7 +7,7 @@ from database import Database
 
 logging.basicConfig(level=logging.INFO)
 
-EXTENSOES = ("cogs.perfil", "cogs.platinas", "cogs.ranking")
+EXTENSOES = ("cogs.perfil", "cogs.platinas", "cogs.ranking", "cogs.colizeu")
 
 
 class ColizeuBot(commands.Bot):

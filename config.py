@@ -6,6 +6,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 GUILD_ID = int(os.getenv("GUILD_ID", "0")) or None
 MOD_CHANNEL_ID = int(os.getenv("MOD_CHANNEL_ID", "0"))
+COLIZEU_CHANNEL_ID = int(os.getenv("COLIZEU_CHANNEL_ID", "0"))
 PLATINAS_CHANNEL_ID = int(os.getenv("PLATINAS_CHANNEL_ID", "0"))
 MOD_ROLE_ID = int(os.getenv("MOD_ROLE_ID", "0"))
 DB_PATH = os.getenv("DB_PATH", "data/colizeu.db")
